@@ -1,0 +1,14 @@
+[package]
+name = "dida-ui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+dida-core.workspace = true
+gpui.workspace = true
+gpui_platform.workspace = true
+gpui_wgpu.workspace = true
+image.workspace = true
+tokio.workspace = true

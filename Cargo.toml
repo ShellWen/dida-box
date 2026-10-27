@@ -1,0 +1,51 @@
+[workspace]
+members = ["crates/core", "crates/drivers", "crates/ui"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+rust-version = "1.95"
+
+[workspace.dependencies]
+anyhow = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "signal", "io-util", "net"] }
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+dida-core = { path = "crates/core" }
+dida-drivers = { path = "crates/drivers" }
+dida-ui = { path = "crates/ui" }
+gpui = { git = "https://github.com/zed-industries/zed", rev = "7fb155e9a26d1abeced06916e64714127235db4d", default-features = false, features = ["test-support"] }
+gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "7fb155e9a26d1abeced06916e64714127235db4d", default-features = false, features = ["x11", "wayland"] }
+gpui_wgpu = { git = "https://github.com/zed-industries/zed", rev = "7fb155e9a26d1abeced06916e64714127235db4d", features = ["test-support"] }
+
+[package]
+name = "dida-box"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+base64 = "0.22"
+image.workspace = true
+clap = { version = "4", features = ["derive"] }
+dida-core.workspace = true
+dida-drivers.workspace = true
+dida-ui.workspace = true
+tokio.workspace = true
+futures-util = { version = "0.3", features = ["sink"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio-tungstenite = { version = "0.28", default-features = false, features = ["handshake"] }
+
+[profile.dev]
+debug = 0
+incremental = false
+
+[profile.release]
+lto = "thin"
+
+[patch.crates-io]
+async-task = { git = "https://github.com/zed-industries/async-task", rev = "015845a19fc31752c02367567d3b8900a406f9da" }
