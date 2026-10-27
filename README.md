@@ -23,6 +23,34 @@ UI modules are Rust panels, not dynamically loaded shared libraries. Implement `
 
 Use `nix-shell` for the Rust toolchain and native build/runtime libraries. The workspace declares Rust 1.95 and pins GPUI to a Git revision in `Cargo.toml`, with resolved dependencies in `Cargo.lock`. Runtime needs a working GPU adapter and system fonts (`Noto Sans` and `Source Han Sans SC`, including its heavy weights for Chinese lyrics). Offscreen rendering does not require `DISPLAY` or `WAYLAND_DISPLAY`; `--preview` requires a graphical session. `shell.nix` uses the NixOS GPU driver path and system font configuration.
 
+## Nix
+
+The flake exposes `packages.default`, built with a pinned `Cargo.lock` and wrapped with `/run/opengl-driver/lib` plus Vulkan on `LD_LIBRARY_PATH`:
+
+```nix
+inputs.dida-box.url = "github:ShellWen/dida-box/v0.2.0";
+```
+
+```nix
+environment.systemPackages = [ inputs.dida-box.packages.${pkgs.system}.default ];
+```
+
+A user-scoped service keeps the panel fed without a desktop session:
+
+```nix
+systemd.user.services.dida-box = {
+  Unit.Description = "Dida Box for the Soeyi CH1L screen";
+  Install.WantedBy = [ "default.target" ];
+  Service = {
+    ExecStart = "${inputs.dida-box.packages.${pkgs.system}.default}/bin/dida-box --device usb:33c3:f101 --device-index 0";
+    Restart = "on-failure";
+    RestartSec = 5;
+  };
+};
+```
+
+The service needs read/write access to the serial port (`dialout` on NixOS) and a GPU adapter; it binds the Spotify bridge on `127.0.0.1:17876`.
+
 ## Run without hardware
 
 ```sh
