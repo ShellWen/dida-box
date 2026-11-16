@@ -1,0 +1,13 @@
+[Unit]
+Description=Dida Box display daemon
+
+[Service]
+Type=dbus
+BusName=io.github.shellwen.DidaBox1
+ExecStart=@out@/bin/dida-box
+Restart=on-failure
+SuccessExitStatus=SIGTERM
+StateDirectory=dida-box
+
+[Install]
+WantedBy=default.target

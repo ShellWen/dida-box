@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Dida Box
+Comment=Configure and control the Dida Box display daemon
+Exec=@out@/bin/dida-box tui
+Terminal=true
+Categories=Utility;

@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Dida Box Tray
+Comment=Show the Dida Box status tray
+Exec=@out@/bin/dida-box tray
+Terminal=false
+Categories=Utility;

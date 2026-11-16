@@ -18,6 +18,7 @@
   libxi,
   libxrandr,
   openssl,
+  pipewire,
   zlib,
 }:
 rustPlatform.buildRustPackage {
@@ -84,7 +85,18 @@ rustPlatform.buildRustPackage {
 
   postInstall = ''
     wrapProgram $out/bin/dida-box \
-      --prefix LD_LIBRARY_PATH : "/run/opengl-driver/lib:${lib.makeLibraryPath [ vulkan-loader libGL ]}"
+      --prefix LD_LIBRARY_PATH : "/run/opengl-driver/lib:${lib.makeLibraryPath [ vulkan-loader libGL ]}" \
+      --prefix PATH : "${lib.makeBinPath [ pipewire ]}"
+
+    install -Dm644 packaging/dida-box.service "$out/lib/systemd/user/dida-box.service"
+    substituteInPlace "$out/lib/systemd/user/dida-box.service" \
+      --replace-fail '@out@' "$out"
+
+    for desktop in packaging/*.desktop; do
+      destination="$out/share/applications/$(basename "$desktop")"
+      install -Dm644 "$desktop" "$destination"
+      substituteInPlace "$destination" --replace-fail '@out@' "$out"
+    done
   '';
 
   meta = {
