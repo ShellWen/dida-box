@@ -475,8 +475,11 @@ fn build_colors(
     for zone in zones {
         for led in 0..zone.leds {
             let level = if zone.linear && zone.leds > 1 {
-                let band = led * (BANDS - 1) / (zone.leds - 1);
-                amplitude(levels[band])
+                let position = led as f32 * (BANDS - 1) as f32 / (zone.leds - 1) as f32;
+                let lower = position.floor() as usize;
+                let upper = (lower + 1).min(BANDS - 1);
+                let fraction = position - lower as f32;
+                amplitude(levels[lower] * (1.0 - fraction) + levels[upper] * fraction)
             } else {
                 energy
             };

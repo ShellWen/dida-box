@@ -15,6 +15,12 @@ const HOP: usize = 1536; // 32 ms at 48 kHz: 31.25 spectrum updates per second.
 const RATE: f32 = 48_000.0;
 const RETRY: Duration = Duration::from_secs(1);
 const READ_TIMEOUT: Duration = Duration::from_millis(250);
+const SPAN_DB: f32 = 24.0;
+const FLOOR_DB: f32 = -70.0;
+const REFERENCE_RISE: f32 = 2.0;
+const REFERENCE_FALL: f32 = 20.0;
+const ATTACK: f32 = 0.012;
+const RELEASE: f32 = 0.14;
 
 #[derive(Clone, Copy, Default)]
 pub(super) struct Spectrum {
@@ -278,6 +284,10 @@ async fn stream(
     }
 }
 
+fn decibels(power: f32) -> f32 {
+    (10.0 * power.max(1.0e-7).log10()).clamp(FLOOR_DB, 0.0)
+}
+
 struct Analyzer {
     fft: Arc<dyn Fft<f32>>,
     scratch: Vec<Complex32>,
@@ -288,8 +298,12 @@ struct Analyzer {
     position: usize,
     normalization: f32,
     levels: [f32; BANDS],
+    reference: [f32; BANDS],
+    ready: bool,
     attack: f32,
     release: f32,
+    rise: f32,
+    fall: f32,
 }
 
 impl Analyzer {
@@ -312,8 +326,12 @@ impl Analyzer {
             // One-sided FFT power, averaged across two independent channels.
             normalization: 1.0 / (FFT_SIZE as f32 * energy),
             levels: [0.0; BANDS],
-            attack: 1.0 - (-(HOP as f32) / RATE / 0.04).exp(),
-            release: 1.0 - (-(HOP as f32) / RATE / 0.22).exp(),
+            reference: [0.0; BANDS],
+            ready: false,
+            attack: 1.0 - (-(HOP as f32) / RATE / ATTACK).exp(),
+            release: 1.0 - (-(HOP as f32) / RATE / RELEASE).exp(),
+            rise: 1.0 - (-(HOP as f32) / RATE / REFERENCE_RISE).exp(),
+            fall: 1.0 - (-(HOP as f32) / RATE / REFERENCE_FALL).exp(),
         }
     }
 
@@ -321,6 +339,7 @@ impl Analyzer {
         self.samples.fill([0.0; 2]);
         self.levels.fill(0.0);
         self.position = 0;
+        self.ready = false;
     }
 
     fn analyze(&mut self, frames: &[[f32; 2]]) -> [f32; BANDS] {
@@ -354,13 +373,29 @@ impl Analyzer {
                     * self.normalization;
             }
         }
-        for (level, power) in self.levels.iter_mut().zip(power) {
-            // Fixed -60 dBFS floor: silence never increases an automatic gain.
-            let target = if power > 1.0e-6 {
-                ((10.0 * power.log10() + 60.0) / 60.0).clamp(0.0, 1.0)
-            } else {
-                0.0
-            };
+        // Music occupies only ~20 dB inside a fixed 60 dB window, so brightness
+        // barely moved. Each band now follows its own slow reference and spans
+        // ±12 dB around it; rises adapt fast so new peaks reach full brightness,
+        // falls adapt slowly so quiet passages and gaps read as dark.
+        if !self.ready && power.iter().any(|power| decibels(*power) > FLOOR_DB) {
+            self.reference = power.map(decibels);
+            self.ready = true;
+        }
+        let mut target = [0.0; BANDS];
+        if self.ready {
+            for (band, power) in power.iter().enumerate() {
+                let db = decibels(*power);
+                if db <= FLOOR_DB {
+                    continue;
+                }
+                let reference = self.reference[band];
+                target[band] =
+                    ((db - (reference - SPAN_DB / 2.0)) / SPAN_DB).clamp(0.0, 1.0);
+                self.reference[band] = reference
+                    + (db - reference) * if db > reference { self.rise } else { self.fall };
+            }
+        }
+        for (level, target) in self.levels.iter_mut().zip(target) {
             *level += (target - *level)
                 * if target > *level {
                     self.attack
